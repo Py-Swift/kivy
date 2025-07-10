@@ -57,7 +57,7 @@ To install Kivy from source, please follow the :ref:`installation guide<kivy-whe
 :ref:`Kivy install step<kivy-source-install>` and then install the dependencies below
 before continuing. Additionally, if you'd like to be able to use the x11 window backend do::
 
-    export USE_X11=1
+   export USE_X11=1
 
 Ubuntu
 ~~~~~~

@@ -672,7 +672,6 @@ def determine_gl_flags():
     if platform == 'win32':
         flags['libraries'] = ['opengl32', 'glew32']
     elif platform == 'ios':
-        flags['libraries'] = ['GLESv2']
         flags['extra_link_args'] = ['-framework', 'OpenGLES']
     elif platform == 'darwin':
         flags['extra_link_args'] = ['-framework', 'OpenGL']
@@ -685,7 +684,6 @@ def determine_gl_flags():
     elif platform == 'android':
         flags['include_dirs'] = [join(ndkplatform, 'usr', 'include')]
         flags['library_dirs'] = [join(ndkplatform, 'usr', 'lib')]
-        flags['libraries'] = ['GLESv2']
     elif platform == 'rpi':
 
         if not cross_sysroot:
@@ -722,7 +720,6 @@ def determine_gl_flags():
     elif platform in ['mali', 'vc']:
         flags['include_dirs'] = ['/usr/include/']
         flags['library_dirs'] = ['/usr/lib/arm-linux-gnueabihf']
-        flags['libraries'] = ['GLESv2']
         c_options['use_x11'] = True
         c_options['use_egl'] = True
     else:
@@ -1155,11 +1152,14 @@ if not build_examples:
         url='http://kivy.org',
         project_urls={
             'Source': 'https://github.com/kivy/kivy',
+            'Documentation': 'https://kivy.org/doc/stable/',
+            'Bug Reports': "https://github.com/kivy/kivy/issues",
         },
         license='MIT',
         description=(
-            'A software library for rapid development of '
-            'hardware-accelerated multitouch applications.'),
+            'An open-source Python framework for developing '
+            'GUI apps that work cross-platform, including '
+            'desktop, mobile and embedded platforms.'),
         long_description=get_description(),
         long_description_content_type='text/markdown',
         ext_modules=ext_modules,
@@ -1195,11 +1195,12 @@ if not build_examples:
             'Operating System :: Microsoft :: Windows',
             'Operating System :: POSIX :: BSD :: FreeBSD',
             'Operating System :: POSIX :: Linux',
-            'Programming Language :: Python :: 3.7',
             'Programming Language :: Python :: 3.8',
             'Programming Language :: Python :: 3.9',
             'Programming Language :: Python :: 3.10',
             'Programming Language :: Python :: 3.11',
+            'Programming Language :: Python :: 3.12',
+            'Programming Language :: Python :: 3.13',
             'Topic :: Artistic Software',
             'Topic :: Games/Entertainment',
             'Topic :: Multimedia :: Graphics :: 3D Rendering',
