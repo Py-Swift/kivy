@@ -320,9 +320,9 @@ c_options['use_mesagl'] = False
 c_options['use_x11'] = False
 c_options['use_wayland'] = None
 c_options['use_gstreamer'] = None
-c_options['use_avfoundation'] = platform in ['darwin', 'ios']
-c_options['use_osx_frameworks'] = platform == 'darwin'
-c_options['use_angle_gl_backend'] = platform in ['darwin', 'ios']
+c_options['use_avfoundation'] = False #platform in ['darwin', 'ios']
+c_options['use_osx_frameworks'] = False #platform == 'darwin'
+c_options['use_angle_gl_backend'] = False# platform in ['darwin', 'ios']
 c_options['debug_gl'] = False
 
 # now check if environ is changing the default values

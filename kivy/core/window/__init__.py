@@ -15,6 +15,7 @@ from os import getcwd
 from collections import defaultdict
 
 from kivy.core import core_select_lib, get_provider_modules, make_provider_tuple
+from kivy.core import _external_providers
 from kivy.clock import Clock
 from kivy.config import Config
 from kivy.logger import Logger
@@ -2588,6 +2589,18 @@ class WindowBase(EventDispatcher):
 # Build platform-specific list from registry
 all_providers = get_provider_modules('window')
 window_impl = []
+
+# External providers get highest priority — they appear first.
+for (cat, opt_name), ext_entry in _external_providers.items():
+    if cat == 'window':
+        # Resolve class name from either a class or a lazy (mod, cls) tuple
+        if isinstance(ext_entry, tuple):
+            cls_name = ext_entry[1]   # (module_path, class_name)
+        else:
+            cls_name = ext_entry.__name__
+        # classname is only informational here — core_select_lib resolves
+        # from the _external_providers registry directly.
+        window_impl.append((opt_name, '__external__', cls_name))
 
 if platform == 'linux' and (pi_version or 4) < 4:
     window_impl.append(make_provider_tuple('egl_rpi', all_providers, 'WindowEglRpi'))

@@ -44,6 +44,102 @@ def _is_strict_mode():
     return value in ('1', 'true', 'yes')
 
 
+#: Registry for external (out-of-tree) providers.
+#: Maps (category, option_name) → provider class **or**
+#: ``(module_path, class_name)`` tuple for lazy resolution.
+#: Populated by :func:`register_external_provider` before Kivy creates
+#: the Window or any other core singleton.
+#:
+#: .. versionadded:: 3.0.0
+_external_providers = {}
+
+
+def register_external_provider(category, option_name, cls_or_module,
+                               classname=None):
+    '''Register an external provider for a core category.
+
+    This allows out-of-tree packages to inject providers (e.g. a custom
+    window backend) without placing files inside the kivy package tree.
+
+    Must be called **before** the provider is instantiated — i.e. before
+    ``from kivy.core.window import Window`` or equivalent.
+
+    Two calling conventions are supported:
+
+    **Eager** — pass the class directly (the provider module must already
+    be importable without triggering the core singleton)::
+
+        from kivy.core import register_external_provider
+        from my_package import WindowThor
+        register_external_provider('window', 'thor', WindowThor)
+
+    **Lazy** — pass the module path and class name as strings.  The class
+    is imported only when ``core_select_lib`` actually tries the provider,
+    which avoids circular-import issues when the provider subclasses a
+    base class defined in the same ``kivy.core.<category>`` module::
+
+        from kivy.core import register_external_provider
+        register_external_provider('window', 'thor',
+                                   'my_package.window_thor', 'WindowThor')
+
+    :Parameters:
+        `category`: str
+            Core category (``'window'``, ``'text'``, ``'image'``, …).
+        `option_name`: str
+            Short name used in ``KIVY_WINDOW`` / config filtering
+            (e.g. ``'thor'``).
+        `cls_or_module`: type or str
+            Either the provider **class** (eager) or a dotted
+            **module path** string (lazy).
+        `classname`: str or None
+            Required when *cls_or_module* is a string — the name of the
+            class inside that module.
+
+    .. versionadded:: 3.0.0
+    '''
+    category = category.lower()
+    option_name = option_name.lower()
+
+    if isinstance(cls_or_module, str):
+        # Lazy registration — store (module_path, class_name) for later
+        if not classname:
+            raise ValueError(
+                'classname is required when cls_or_module is a string')
+        _external_providers[(category, option_name)] = (
+            cls_or_module, classname)
+    else:
+        # Eager registration — store the class directly
+        _external_providers[(category, option_name)] = cls_or_module
+
+    # Ensure the option name appears in PROVIDER_CONFIGS so that
+    # kivy_options (the allow-list) includes it automatically.
+    if category in PROVIDER_CONFIGS:
+        names = [n for n, _ in PROVIDER_CONFIGS[category]]
+        if option_name not in names:
+            # Prepend — external providers get highest priority.
+            PROVIDER_CONFIGS[category].insert(
+                0, (option_name, '__external__'))
+    else:
+        PROVIDER_CONFIGS[category] = [(option_name, '__external__')]
+
+    # Patch kivy_options live so the config gate doesn't filter it out.
+    import kivy
+    opts = kivy.kivy_options.get(category)
+    if opts is not None:
+        if isinstance(opts, tuple):
+            if option_name not in opts:
+                kivy.kivy_options[category] = (option_name,) + opts
+        elif isinstance(opts, list):
+            if option_name not in opts:
+                opts.insert(0, option_name)
+    else:
+        kivy.kivy_options[category] = (option_name,)
+
+    Logger.info(
+        'Core: Registered external {0} provider <{1}>'.format(
+            category, option_name))
+
+
 #: Centralized provider configuration registry.
 #: Single source of truth for all Kivy core providers.
 #:
@@ -290,6 +386,30 @@ def core_select_lib(category, llist, create_instance=False,
                     continue
             except KeyError:
                 pass
+
+            # ---- external provider shortcut ----
+            ext_entry = _external_providers.get((category, option))
+            if ext_entry is not None:
+                # Resolve lazy (module_path, class_name) or eager (class)
+                if isinstance(ext_entry, tuple):
+                    mod_path, cls_name = ext_entry
+                    mod = importlib.__import__(
+                        mod_path, globals=globals(),
+                        locals=locals(),
+                        fromlist=[cls_name], level=0)
+                    ext_cls = getattr(mod, cls_name)
+                    # Cache the resolved class for next time
+                    _external_providers[(category, option)] = ext_cls
+                else:
+                    ext_cls = ext_entry
+                Logger.info(
+                    '{0}: Provider: {1} (external){2}'.format(
+                        category.capitalize(), option,
+                        ' ({0} ignored)'.format(
+                            libs_ignored) if libs_ignored else ''))
+                if create_instance:
+                    ext_cls = ext_cls()
+                return ext_cls
 
             # import module
             mod = importlib.__import__(name='{2}.{0}.{1}'.format(
