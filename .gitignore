@@ -27,6 +27,7 @@ kivy/core/text/text_layout.pyd
 kivy/core/window/window_info.c
 kivy/graphics/*.c
 kivy/graphics/*.cpp
+kivy/graphics/**/*.cpp
 kivy/graphics/*.pyd
 kivy/graphics/cgl_backend/*.c
 kivy/graphics/cgl_backend/*.pyd
@@ -35,6 +36,7 @@ kivy/include/config.h
 kivy/include/config.pxi
 kivy/lib/gstplayer/_gstplayer.c
 kivy/core/camera/camera_avfoundation.c
+kivy/core/camera/camera_avfoundation.cpp
 kivy/tests/build
 kivy/tests/results
 kivy/tests/image-testsuite
@@ -60,6 +62,7 @@ kivy-dependencies
 MANIFEST
 
 kivy/core/image/img_imageio.c
+kivy/core/image/img_imageio.cpp
 kivy/core/audio_output/audio_sdl3.c
 kivy/core/text/text_sdlttf.c
 kivy/core/window/window_x11.c

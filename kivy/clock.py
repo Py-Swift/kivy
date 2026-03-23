@@ -583,29 +583,9 @@ class ClockBaseBehavior(object):
     '''
 
     _dt = 0.0001
-    _last_fps_tick = None
     _start_tick = 0
-    _fps = 0
-    _rfps = 0
-    _fps_counter = 0
-    _rfps_counter = 0
     _frames = 0
     _frames_displayed = 0
-    _events_duration = 0
-    '''The measured time that it takes to process all the events etc, excepting
-    any sleep or waiting time. It is the average and is updated every 5
-    seconds.
-    '''
-
-    _duration_count = 0
-    _sleep_time = 0
-    _duration_ts0 = 0
-
-    MIN_SLEEP = 0.005
-    '''The minimum time to sleep. If the remaining time is less than this,
-    the event loop will continue.
-    '''
-    SLEEP_UNDERSHOOT = MIN_SLEEP - 0.001
 
     _async_lib = None
 
@@ -614,7 +594,7 @@ class ClockBaseBehavior(object):
     def __init__(self, async_lib='asyncio', **kwargs):
         self.init_async_lib(async_lib)
         super(ClockBaseBehavior, self).__init__(**kwargs)
-        self._duration_ts0 = self._start_tick = self._last_tick = self.time()
+        self._start_tick = self._last_tick = self.time()
         self._max_fps = float(Config.getint('graphics', 'maxfps'))
 
     def init_async_lib(self, lib):
@@ -670,134 +650,34 @@ class ClockBaseBehavior(object):
         '''
         return self._frames_displayed
 
-    def usleep(self, microseconds):
-        '''Sleeps for the number of microseconds.
-        '''
-        pass
-
-    def idle(self):
-        '''(internal) waits here until the next frame.
-        '''
-        fps = self._max_fps
-        if fps > 0:
-            min_sleep = self.get_resolution()
-            undershoot = 4 / 5. * min_sleep
-            usleep = self.usleep
-            ready = self._check_ready
-
-            done, sleeptime = ready(fps, min_sleep, undershoot)
-            while not done:
-                usleep(1000000 * sleeptime)
-                done, sleeptime = ready(fps, min_sleep, undershoot)
-
-        current = self.time()
-        self._dt = current - self._last_tick
-        self._last_tick = current
-        return current
-
-    async def async_idle(self):
-        '''(internal) async version of :meth:`idle`.
-        '''
-        fps = self._max_fps
-        if fps > 0:
-            min_sleep = self.get_resolution()
-            undershoot = 4 / 5. * min_sleep
-            ready = self._check_ready
-
-            slept = False
-            done, sleeptime = ready(fps, min_sleep, undershoot)
-            while not done:
-                slept = True
-                await self._async_lib.sleep(sleeptime)
-                done, sleeptime = ready(fps, min_sleep, undershoot)
-
-            if not slept:
-                await self._async_lib.sleep(0)
-        else:
-            await self._async_lib.sleep(0)
-
-        current = self.time()
-        self._dt = current - self._last_tick
-        self._last_tick = current
-        return current
-
-    def _check_ready(self, fps, min_sleep, undershoot):
-        sleeptime = 1 / fps - (self.time() - self._last_tick)
-        return sleeptime - undershoot <= min_sleep, sleeptime - undershoot
-
-    def tick(self):
+    def tick(self, dt):
         '''Advance the clock to the next step. Must be called every frame.
-        The default clock has a tick() function called by the core Kivy
-        framework.'''
-        self.pre_idle()
-        ts = self.time()
-        self.post_idle(ts, self.idle())
 
-    async def async_tick(self):
-        '''async version of :meth:`tick`. '''
+        *dt* (seconds): externally measured delta, e.g. from a display link.
+        '''
         self.pre_idle()
-        ts = self.time()
-        current = await self.async_idle()
-        self.post_idle(ts, current)
+        self._dt = dt
+        self._last_tick += dt
+        self._frames += 1
+        self._process_events()
 
     def pre_idle(self):
         '''Called before :meth:`idle` by :meth:`tick`.
         '''
         self._release_references()
 
-    def post_idle(self, ts, current):
+    def post_idle(self, current):
         '''Called after :meth:`idle` by :meth:`tick`.
         '''
-        # tick the current time
         self._frames += 1
-        self._fps_counter += 1
-
-        # compute how long the event processing takes
-        self._duration_count += 1
-        self._sleep_time += current - ts
-        t_tot = current - self._duration_ts0
-        if t_tot >= 1.:
-            self._events_duration = \
-                (t_tot - self._sleep_time) / float(self._duration_count)
-            self._duration_ts0 = current
-            self._sleep_time = self._duration_count = 0
-
-        # calculate fps things
-        if self._last_fps_tick is None:
-            self._last_fps_tick = current
-        elif current - self._last_fps_tick > 1:
-            d = float(current - self._last_fps_tick)
-            self._fps = self._fps_counter / d
-            self._rfps = self._rfps_counter
-            self._last_fps_tick = current
-            self._fps_counter = 0
-            self._rfps_counter = 0
-
-        # process event
         self._process_events()
-
         return self._dt
 
     def tick_draw(self):
         '''Tick the drawing counter.
         '''
         self._process_events_before_frame()
-        self._rfps_counter += 1
         self._frames_displayed += 1
-
-    def get_fps(self):
-        '''Get the current average FPS calculated by the clock.
-        '''
-        return self._fps
-
-    def get_rfps(self):
-        '''Get the current "real" FPS calculated by the clock.
-        This counter reflects the real framerate displayed on the screen.
-
-        In contrast to get_fps(), this function returns a counter of the
-        number of frames, not the average of frames per second.
-        '''
-        return self._rfps
 
     def get_time(self):
         '''Get the last tick made by the clock.'''
